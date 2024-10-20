@@ -3,6 +3,9 @@
 ### **Complete Architecture**
 ![Image](architecture.png)
 
+---
+
+## **1. Set Up a Web App in the Cloud**
 ### **Set up an IAM user:**
 - It is a best practice to work with IAM user instead of working through Root user.
  ![Image](1.0-framed.png)
@@ -71,3 +74,17 @@ export PATH=/usr/lib/jvm/java-1.8.0-amazon-corretto.x86_64/jre/bin/:$PATH
 - Explore and edit your Java web app's files using VSCode.
 - Succesfully connected and made changes to the code
 ![Image](vscode.png)
+
+---
+
+## **2. Connect a GitHub Repo with AWS**
+![Image](connect-to-github-stage.png)
+### **Install Git:**
+- Commands to install git are given below
+```
+sudo dnf update -y
+sudo dnf install git -y
+```
+
+- SignIn to GitHub account, if not there create account in GitHub.
+- 
