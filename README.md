@@ -221,3 +221,36 @@ In this step, you're going to:
 5. Name the policy codeartifact-vishnu-consumer-policy.
 6. For the description, let's add: Provides permissions to read from CodeArtifact.
 7. Click Create policy.
+
+---
+
+## **Package an App with AWS CodeBuild**
+
+### **Set up an S3 bucket**
+### **💡 Why are we creating an S3 bucket?**
+- This S3 bucket will later store a file that gets created in the build process you're about to set up. Let's create this bucket in advance so that CodeBuild is configured properly in the next step
+  
+### **💡Why are we compiling again with CodeBuild?**
+- Didn't I compile something already with the settings.xml file?Good catch! The compiling that takes place in CodeBuild is exactly the same as the compiling you ran manually in the last step (when you ran mvn -s settings.xml compile). But, CodeBuild is going to help us automate that compilation process (so you won't need to run manual commands in your VSCode terminal to compile your web app anymore) AND it creates the WAR file for your server to run.
+
+1. Click Create Bucket and give the bucket a unique name e.g. vishnu-build-artifacts-yourname.
+2. Leave all the other options as default.
+3. Click Create bucket.
+
+## **Create a CodeBuild build project**
+1. Log into the AWS Console and search for the CodeBuild console.
+2. Select Create project.
+3. Name the project vishnu-web-build.
+4. Expand the Additional configuration toggle right underneath the Name field.
+5. Add a tag with key team and value devops.
+6. In the Source panel, select AWS CodeCommit as the source provider.
+
+### **💡 What does source mean?**
+- CodeBuild is ready to start compiling your web app, but it doesn't know where your code is stored! Source means the location of the code that CodeBuild will fetch, compile, and package into a WAR file. The source can be a version control repository, such as AWS CodeCommit, where your project's code is maintained and managed..
+  
+### **💡 There so many options for the source provider!**
+- Yup, CodeCommit is not the only option for your project's source, so you can also use CodeBuild to automatically compile and build code stored in Amazon S3, GitHub, Bitbucket and other providers!
+
+7. Select nextwork-web-project as the repository.
+8. Select main as the branch.
+   
