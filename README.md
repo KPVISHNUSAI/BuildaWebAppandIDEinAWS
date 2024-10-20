@@ -19,6 +19,7 @@
 - Click on create instance.
 
 ### **Connect to your EC2 Instance:**
+![Image](3.0-framed.png)
 - Using Public IPV4 DNS we can connect to EC2 instance using SSH
 - Command connection
   -  ```
@@ -68,5 +69,5 @@ export PATH=/usr/lib/jvm/java-1.8.0-amazon-corretto.x86_64/jre/bin/:$PATH
 - Install an extension in VSCode.
 - Use the extension to set up a connection between VSCode and your EC2 instance.
 - Explore and edit your Java web app's files using VSCode.
-
+- Succesfully connected and made changes to the code
 ![Image](vscode.png)
