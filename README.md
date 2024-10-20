@@ -79,6 +79,7 @@ export PATH=/usr/lib/jvm/java-1.8.0-amazon-corretto.x86_64/jre/bin/:$PATH
 
 ## **2. Connect a GitHub Repo with AWS**
 ![Image](connect-to-github-stage.png)
+
 ### **Install Git:**
 - Commands to install git are given below
 ```
@@ -87,4 +88,12 @@ sudo dnf install git -y
 ```
 
 - SignIn to GitHub account, if not there create account in GitHub.
-- 
+- create a repository in GitHub
+
+
+### **Commit and Push Your Changes to GithHub**
+In this step, you're going to:
+1. Set up a local git repo in your web app folder.
+2. Connect your local repo with your GitHub repo.
+3. Head back to your VSCode remote window. Make sure it's still SSH connected to your EC2 instance by checking the bottom left corner.
+4. 
