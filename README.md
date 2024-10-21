@@ -253,4 +253,57 @@ In this step, you're going to:
 
 7. Select nextwork-web-project as the repository.
 8. Select main as the branch.
-   
+9. Under the Environment panel, choose to the following settings:
+    -  Provisioning model: On-demand.
+    -  Environment image: Managed image.
+    -  Compute: EC2.
+    -  Operating System: Amazon Linux.
+    -  Runtime: Standard.
+    -  Image: aws/codebuild/amazonlinux2-x86\_64-standard:coretto8.
+    -  Image version: Always use the latest image for this runtime version.
+    -  Service role: New service role
+10. Under the Buildspec panel, select the option to Use a buildspec file.
+11. Under the Artifacts panel, select Amazon S3 as your Type.
+12. Under Bucket name, Choose the S3 bucket you created earlier.
+13. Set the Name of your artifact to nextwork-web-build.zip.
+14. Change the Artifacts packaging option to Zip.
+15. This will make sure all the artifacts are bundled into one WAR file instead of getting stored in S3 individually!.
+16. Under the Logs panel, enable CloudWatch logs if it's not enabled yet.
+17. Set the CloudWatch group name to nextwork-build-logs.
+18. Set the stream name prefix to webapp.
+19. Click Create build project to finish!
+
+### **Create Your Web App's buildspec.yml File**
+Next, we're going to create a buildspec.yml file to define the commands for building your project.
+1. Head back into the VSCode IDE which is connected to remote SSH.
+2. In your left hand navigation panel, right click on vishnu-web-project and select New File.
+3.  Name your new file buildspec.yml (naming must be exact!).
+4.  Copy in the below contents.
+    - Make sure the name after --domain is the actual domain name for you CodeArtifact repository.
+    - Make sure to replace the 123456789012 placeholder after domain-owner with your own Account ID.
+    - Don't know where to look for your Account ID? Switch tabs back to your CodeBuild console, and click on your account name on the top right hand corner. This will reveal a handy little Acocount ID you can          copy!
+  
+ ```
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto8
+  pre_build:
+    commands:
+      - echo Initializing environment
+      - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain nextwork --domain-owner 123456789012 --query authorizationToken --output text`
+  build:
+    commands:
+      - echo Build started on `date`
+      - mvn -s settings.xml compile
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - mvn -s settings.xml package
+artifacts:
+  files:
+    - target/web-project.war
+  discard-paths: no
+```
