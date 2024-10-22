@@ -307,3 +307,5 @@ artifacts:
     - target/web-project.war
   discard-paths: no
 ```
+
+**Note**: Make sure to give the path "target/web-project.war" correctly and change it in the pom.xml file's ```<build></build>``` also.
