@@ -309,3 +309,296 @@ artifacts:
 ```
 
 **Note**: Make sure to give the path "target/web-project.war" correctly and change it in the pom.xml file's ```<build></build>``` also.
+
+### **Modifying your CodeBuild IAM Role**
+- With your buildspec.yml file created, we're going to update your CodeBuild role - it needs permissions to use CodeArtifact during the build process.
+- In the AWS Console, head to your IAM console in a new tab. We'll use CodeBuild again soon!
+- Select Roles in left hand navigation menu.
+- Search for codebuild to find your auto-generated role (it should be called ```codebuild-vishnu-web-build-service-role```) and click into it.
+- Click the Add permissions button.
+- Select Attach policies in the drop-down menu.
+- Search for ```codeartifact-vishnu-consumer-policy```, select the item, and click Add permissions.
+
+### **Testing the Build Project**
+- Now we have everything in place to run our first build using CodeBuild!.
+- Head back to your CodeBuild console.
+- Select the ```vishnu-web-build``` project and select Start build.
+- Monitor the logs and wait for the build status to complete (this should take no more than 5 minutes).
+- Once the build is complete, head back to your S3 console in a new tab.
+- Open your ```webapp-build-artifacts-vishnu``` S3 bucket to verify you have a packaged WAR file inside a zip named ```web-project.zip```.
+
+## **Now host and deploy the packed WAR file on a server with AWS CodeDeploy!**
+### **Set up your EC2 instance**
+1. Let's use AWS CloudFormation to provision a VPC and an EC2 instance to deploy our application!
+
+**💡 Why are we creating an EC2 instance and VPC?**
+- This EC2 instance will host our Java application. It's like a computer in the cloud that will keep our app running and available for users to access.
+- The VPC (Virtual Private Cloud) is another AWS service that helps us control who on the internet or other networks can get access to our web app. In this project, our VPC will make sure our web app is discoverable on the internet.
+
+**💡 Didn't we already create an EC2 instance when we set up our VSCode IDE?**
+- Yes we did! When we created our VSCode IDE, we've set up an EC2 instance for us to use as a development environment i.e. to create and edit code for our web app.
+- This new instance is created specifically for running our application in a live, production environment i.e. what users will see.
+- By having a separate EC2 instance for deploying our application, we avoid the risk of testing any code changes/new features in a live production environment that users end up seeing too.
+  
+**💡 Why do we need a VPC for a web app?** 
+- We didn't need this to host a static website.Web apps need a VPC because they have more complex needs like connecting with multiple resources that communicate with each other e.g. databases and EC2 instances, keeping everything secure, and controlling network traffic. But for static websites hosted on S3, a VPC isn’t necessary. These sites are just collections of files like HTML and JavaScript, and S3 handles storing and serving these files directly to the internet. This makes hosting static sites on S3 simple, cost-effective, and perfect for public access without the need for complex networking. 
+
+2. Search for CloudFormation in your AWS Console.
+
+**💡 What is AWS CloudFormation? Why are we using it? **
+- AWS CloudFormation is a service that creates or updates resources in your account using coded up templates. No more clicking through your AWS Management Console to create every resource one at time - with CloudFormation, you can write down all the resources you need for your application, such as EC2 instances, databases, and more, in a simple text file! Once you pass your text file to CloudFormation, all the resources you've noted down will get created in seconds. In this project, you're going to use CloudFormation to set up our VPC and EC2 instance for deploying our application. Using CloudFormation templates will make sure that everything is set up correctly and consistently, with less risk of human errors!
+
+### **Setup cloud formation stack**
+1. Log in to the AWS Console and navigate to CloudFormation.
+2. Click Create stack in the CloudFormation console, and choose With new resources (standard).
+3. Select Upload a template file, then click Choose file and upload the vishnuwebapp.yaml file.
+```
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  AmazonLinuxAMIID:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  MyIP:
+    Type: String
+    Description: My IP address e.g. 1.2.3.4/32 for Security Group HTTP access rule. Get your IP from http://checkip.amazonaws.com/.
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/32
+    ConstraintDescription: must be a valid IP address of the form x.x.x.x/32
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.11.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: 'Name'
+          Value: !Join ['', [!Ref 'AWS::StackName', '::VPC'] ]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: 'Name'
+          Value: !Join ['', [!Ref 'AWS::StackName', '::InternetGateway'] ]
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref VPC
+      CidrBlock: 10.11.0.0/20
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: 'Name'
+          Value: !Join ['', [!Ref 'AWS::StackName', '::PublicSubnetA'] ]
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Join ['', [!Ref 'AWS::StackName', '::PublicRouteTable'] ]
+
+  PublicInternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+
+  PublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      GroupDescription: Access to our Web server
+      SecurityGroupIngress:
+      - Description: Enable HTTP access via port 80 IPv4
+        IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: !Ref MyIP
+      SecurityGroupEgress:
+      - Description: Allow all traffic egress
+        IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: 'Name'
+          Value: !Join ['', [!Ref 'AWS::StackName', '::PublicSecurityGroup'] ]
+
+  ServerRole: 
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+
+  DeployRoleProfile: 
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Path: "/"
+      Roles: 
+        - 
+          Ref: ServerRole
+
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmazonLinuxAMIID
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref DeployRoleProfile
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet: 
+            - Ref: PublicSecurityGroup
+          SubnetId: 
+            Ref: PublicSubnetA
+      Tags:
+        - Key: 'Name'
+          Value: !Join ['', [!Ref 'AWS::StackName', '::WebServer'] ]
+        - Key: 'role'
+          Value: 'webserver'
+
+Outputs:
+  URL:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - WebServer
+          - PublicIp
+    Description: Vishnu web server
+
+
+   ```
+4. Name the stack ```vishnu-ec2-vpc-stack```.
+
+### **Configure Your IP for Security Group Access:**
+1. To allow SSH access from your IP only, you’ll need to find your public IP.
+2. You can do this by visiting http://checkip.amazonaws.com/ and copying the IP it shows.
+3. In the Parameters section, paste your IP address into the MyIP field and add /32 at the end (e.g., 123.45.67.89/32).
+4. This restricts SSH access to only your current IP address.
+
+### **Complete the Stack Creation:**
+1. Click Next and complete the remaining steps, then click Create stack to launch your EC2 instance and VPC.
+2. Once the stack creation is complete, you’ll see the new EC2 instance and security group in your AWS console.
+
+### **Connect to the New EC2 Instance:**
+1. In the EC2 Console, find your new instance created by the CloudFormation stack.
+2. Copy the Public IP address or DNS of the instance.
+3. Open VS Code, go to View > Command Palette, and type "Remote-SSH: Connect to Host...".
+3. Use the SSH command with your .pem file to connect, like so:
+   ```ssh -i "path/to/devopskey.pem" ec2-user@<Your-EC2-Instance-IP>```
+4. You should now be connected to the EC2 instance.
+
+### **Create scripts to run the application**
+1. Head back to your VSCode IDE Remote SSH.
+2. In the left hand file explorer, right click on web-project and select New Folder.
+3. Name your folder scripts.
+4. Right click on the scripts folder and create a file install_dependencies.sh.
+5. Add the following lines to ```install_dependencies.sh```:
+   ```
+    #!/bin/bash
+   sudo yum install tomcat -y
+   sudo yum -y install httpd
+   sudo cat << EOF > /etc/httpd/conf.d/tomcat_manager.conf
+   <VirtualHost *:80>
+     ServerAdmin root@localhost
+     ServerName app.nextwork.com
+     DefaultType text/html
+     ProxyRequests off
+     ProxyPreserveHost On
+     ProxyPass / http://localhost:8080/nextwork-web-project/
+     ProxyPassReverse / http://localhost:8080/nextwork-web-project/
+   </VirtualHost>
+   EOF
+
+   ```
+6. **Create a ```start_server.sh``` file in the scripts folder and add the following lines:**
+```
+#!/bin/bash
+sudo systemctl start tomcat.service
+sudo systemctl enable tomcat.service
+sudo systemctl start httpd.service
+sudo systemctl enable httpd.service
+```
+
+ 7. **Create a ```stop_server.sh``` file in the scripts folder and add the following lines:**
+```
+#!/bin/bash
+isExistApp="$(pgrep httpd)"
+if [[ -n $isExistApp ]]; then
+sudo systemctl stop httpd.service
+fi
+isExistApp="$(pgrep tomcat)"
+if [[ -n $isExistApp ]]; then
+sudo systemctl stop tomcat.service
+fi
+```
+
+8. Now let's create appspec.yml!.
+9. Right click on the web-project folder and select New File.
+10. Create a new file called appspec.yml. Add the following lines to your new file:
+```
+version: 0.0
+os: linux
+files:
+  - source: /target/web-project.war
+    destination: /usr/share/tomcat/webapps/
+hooks:
+  BeforeInstall:
+    - location: scripts/install_dependencies.sh
+      timeout: 300
+      runas: root
+  ApplicationStart:
+    - location: scripts/start_server.sh
+      timeout: 300
+      runas: root
+  ApplicationStop:
+    - location: scripts/stop_server.sh
+      timeout: 300
+      runas: root
+```
+
+### **💡 What is this appspec.yml file saying?**
+- This appspec.yml file is split into multiple sections! Let's break them down together. ⚙️ The version and os sections tells CodeDeploy that this appspec.yml file is written using version 0.0 of how buildspec files are written, and this deployment is for a Linux-based operating system (which matches the EC2 instances we've deployed!).
+
+11. Let's modify the artifacts section in ```buildspec.yml```.
+12. Double click on ```buildspec.yml``` in your left hand navigation bar in VSCode Remote SSH.
+13. Add these two lines to your ```buildspec.yml``` file!
+    ```
+    - appspec.yml
+    - scripts/**/*
+    ```
+### **💡 Why are we modifying artifacts in buildspec.yml?**
+We modify the artifacts section in ```buildspec.yml``` to add the newly added scripts folder and a ```ppspec.yml``` file to the WAR file that CodeBuild will create in the build process! By including these new items, we're making sure CodeDeploy has all the necessary files to successfully deploy our application.
