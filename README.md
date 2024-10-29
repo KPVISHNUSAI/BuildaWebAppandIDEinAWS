@@ -602,3 +602,92 @@ hooks:
     ```
 ### **💡 Why are we modifying artifacts in buildspec.yml?**
 We modify the artifacts section in ```buildspec.yml``` to add the newly added scripts folder and a ```ppspec.yml``` file to the WAR file that CodeBuild will create in the build process! By including these new items, we're making sure CodeDeploy has all the necessary files to successfully deploy our application.
+
+### **Create the CodeDeploy service IAM Role**
+1. Log into the AWS Console and open the IAM console.
+2. Choose Roles.
+3. Click Create role.
+
+### **💡 Why are we creating a service role?**
+- We're creating a service role so that CodeDeploy can deploy to an EC2 instance! Right now, CodeDeploy does not have access to EC2, so we're going to grant access using the AWS Managed AWSCodeDeployRole policy.
+
+### **💡 What does AWS Managed mean?**
+- Think of AWS Managed policies as templates that you can pick and use right away - in this case, AWS takes care of creating and updating the AWSCodeDeployRole policy for you.
+- There are lots of AWS Managed policies for all kinds of AWS services, which saves you from defining these permissions yourself.
+
+4. Choose CodeDeploy as the service.
+5. Select CodeDeploy for the use case.
+6. Click Next.
+7. You'll notice the AWSCodeDeployRole default policy is suggested already - nice! That's all we need.
+8. Click on the plus button to take a look at the permissions this grants. There are many actions that we're allowing in this default policy! Phew, saves us the time from defining these ourselves.
+9. Click Next and name the role ```VishnuCodeDeployRole```.
+10. Click Create role to finish.
+
+## **Create a CodeDeploy application**
+Now that we have our required files in place, let's create a CodeDeploy application.
+
+**💡 What is a CodeDeploy application?**
+A CodeDeploy application works like a folder that holds all the settings it needs for a deployment. Think of this as setting up a template for deploying a web app, so you won't need to configure all the settings from scratch every time! This means using CodeDeploy applications helps to streamline the deployment process and ensures consistency across deployments - very intertwined with what DevOps is all about!
+
+1. Head to your CodeDeploy console.
+2. Click on Applications on the left-hand menu.
+3. Select Create application.
+4. Name the application vishnu-web-deploy.
+5. Select EC2/On-premises as the Compute platform.
+
+### ** 💡 Note the other Compute platform options - AWS Lambda and Amazon ECS.**
+AWS CodeDeploy can work with different compute platforms, meaning it can deploy applications to different types of environments. Besides EC2/On-premises environments, it can also deploy to AWS Lambda (serverless applications) and Amazon ECS (containerized applications).
+
+### **💡 Why are we choosing a compute platform here in the first place?**
+Each compute platform has different requirements and ways of handling applications, so selecting the correct platform lets CodeDeploy knows how to deploy your application properly.
+
+### **💡 What does it mean to deploy to a serverless vs containerized application?**
+Deploying to a serverless application, like AWS Lambda, means you don't have to manage any servers. The code runs in response to events, like someone visiting a website or uploading a file.Deploying a containerized application using Amazon ECS (Elastic Container Service) means your application runs inside containers that are managed by ECS. Containers bundle your application with everything it needs to run, making it portable and consistent. It's like having a food truck (container) that carries a fully equipped kitchen (deployment environment) with it. No matter where you deploy your containerized application, the deployment environment that your app runs in remains the same, making deployment consistent every time!
+
+### **💡 These are some cool compute platform options! Why are we selecting EC2?**
+We're using EC2 because it provides us with virtual servers in the cloud that we can fully control. This means we can install, configure, and manage everything on these servers, which is perfect for running our web application and learning in detail the different settings that come with setting up servers for deploying our web app.
+Selecting serverless or containerized compute platforms might speed up a few things here (you can totally pick them instead of EC2), but we'll end up skipping a few opportunities to learn.
+
+### **💡 Wait, the dropdown says EC2/On-premise. What is on-premises?**
+On-premises means 👀 physical 👀 servers and infrastructure that are located at a data center or office, rather than in the cloud! Yup, that means CodeDeploy could connect to physical servers - not just virtual servers. Some companies still use physical servers for security or compliance reasons (e.g. some banks in Germany and Russia have to store and process sensitive data on-premises), or because it would be too expensive to migrate their applications to the cloud. You can set up this connection by installing a CodeDeploy Agent, which is a program you'll learn more about in the next step!
+
+6. Click Create application.
+
+### **Create a deployment group**
+Next, let's create a deployment group!
+
+### **💡 What is a deployment group? Why are we creating one?**
+You might remember that we previously said a CodeDeploy application is a like a template for your web app's deployment. If your CodeDeploy application is the main project folder for all the settings and configurations for deploying your software, think of the deployment group as the specific instructions for one particular deployment scenario. It defines which servers to use, how to deploy, and what settings to apply for that specific deployment.
+
+### **💡 So many different deployment scenarios can exist for the same CodeDeploy application?**
+Yup! For example, you might have one deployment group for deploying updates to your production environment and another for testing new features in a staging environment. Each scenario could have different settings, servers, and rules to make sure the deployment goes smoothly.
+
+1. Click into your new nextwork-web-deploy application.
+2. In the Deployment groups tab, click Create deployment group.
+3. Configure the following options:
+4. Name: nextwork-web-deploy-group.
+5. Service role: arn:aws:iam::<your-aws-account-id>:role/NextWorkCodeDeployRole.
+6. Deployment type: In-place
+7. Environment configuration: Amazon EC2 instances.
+8. Tag group:
+   - Key: role.
+   - Value: webserver.
+ 9. Install AWS CodeDeploy Agent: Now and schedule updates (14 days)
+ 10. Deployment settings: CodeDeployDefault.AllAtOnce.
+ 11. Load balancer: Uncheck Enable load balancing
+ 12. Click Create deployment group.
+
+### **Create your deployment. **
+- After creating our deployment group, i.e. defining the resources that we want to deploy, we can now create a deployment!.
+1. In your newly created ```vishnu-web-deploy-group```, click Create deployment.
+2. For the Revision location, head back to your S3 console and click into your ```vishnu-web-build``` bucket.
+3. Click into your zip file, and copy its S3 URI.
+4. Paste that S3 URI into the Revision location field.
+5. Make sure .zip is still selected as the Revision file type.
+6. Leave the other settings as default and click Create deployment.
+7. The deployment will now begin. This should take around 30 seconds!
+
+### **It's time to harvest the fruits of your hard work! 🍋.** 
+1. Let's head back to your EC2 console. 
+2. Select your WebServer EC2 instance, and click on open address.
+3. When you click the open address link, a new tab will default to using https:// at the start of your link. Manually change that to http:// and try again.
